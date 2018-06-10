@@ -312,11 +312,7 @@ fn slurp_store_path(state: &Mutex<State>, name: &str)
         hash_map::Entry::Vacant(e) => e,
     };
 
-    let closure = match state.closure_for_path.entry(path.clone()) {
-        hash_map::Entry::Occupied(e) => e.into_mut(),
-        hash_map::Entry::Vacant(e) => e.insert(get_store_closure(&path)
-            .context("determining closure")?),
-    };
+    let closure = get_store_closure(&path).context("determining closure")?;
 
     let mut layers = HashMap::new();
     for path in closure {
@@ -357,7 +353,6 @@ struct Image {
 
 struct State {
     image_for_path: HashMap<String, Arc<Image>>,
-    closure_for_path: HashMap<String, Vec<String>>,
     store_path_blobs: HashMap<String, Arc<Blob>>,
 }
 
@@ -424,7 +419,6 @@ fn main_() -> Result<(), Error> {
 
     let state = State {
         image_for_path: HashMap::new(),
-        closure_for_path: HashMap::new(),
         store_path_blobs: HashMap::new(),
     };
     let state = Arc::new(Mutex::new(state));
