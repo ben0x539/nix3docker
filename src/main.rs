@@ -256,10 +256,7 @@ fn make_config(layers: &HashMap<[u8; 32], Arc<Blob>>) -> Result<Blob, Error> {
         },
     };
 
-    let bytes = serde_json::to_vec(&cfg)?;
-    let hash = sha256(&bytes);
-
-    Ok(Blob { hash, bytes })
+    Blob::json(&cfg)
 }
 
 fn make_manifest(cfg: &Blob, layers: &HashMap<[u8; 32], Arc<Blob>>) -> Result<Blob, Error> {
@@ -282,13 +279,10 @@ fn make_manifest(cfg: &Blob, layers: &HashMap<[u8; 32], Arc<Blob>>) -> Result<Bl
         layers: layer_refs,
     };
 
-    let bytes = serde_json::to_vec(&m)?;
-    let hash = sha256(&bytes);
-
-    Ok(Blob { hash, bytes })
+    Blob::json(&m)
 }
 
-fn tar(path: &str) -> Result<([u8; 32], Vec<u8>), Error> {
+fn tar(path: &str) -> Result<Vec<u8>, Error> {
     eprintln!("tar c {} -P", path);
     let output = process::Command::new("tar").args(&["c", path, "-P"])
         .output()?;
@@ -297,9 +291,7 @@ fn tar(path: &str) -> Result<([u8; 32], Vec<u8>), Error> {
         bail!("\"tar c {} -P\" failed: {}", path, err);
     }
 
-    let hash = sha256(&output.stdout);
-    eprintln!("  {:?}, {} bytes", hash, output.stdout.len());
-    Ok((hash, output.stdout))
+    Ok(output.stdout)
 }
 
 fn slurp_store_path(state: &Mutex<State>, name: &str)
@@ -319,12 +311,8 @@ fn slurp_store_path(state: &Mutex<State>, name: &str)
         let layer = match state.store_path_blobs.entry(path.clone()) {
             hash_map::Entry::Occupied(e) => e.into_mut(),
             hash_map::Entry::Vacant(e) => {
-                let (hash, bytes) = tar(&path).context("creating tarball")?;
-                let layer = Arc::new(Blob {
-                    hash: hash,
-                    bytes: bytes
-                });
-                e.insert(layer)
+                let blob = Blob::new(tar(&path).context("creating tarball")?);
+                e.insert(Arc::new(blob))
             }
         };
 
@@ -343,6 +331,17 @@ fn slurp_store_path(state: &Mutex<State>, name: &str)
 struct Blob {
     hash: [u8; 32],
     bytes: Vec<u8>,
+}
+
+impl Blob {
+    fn new(bytes: Vec<u8>) -> Blob {
+        let hash = sha256(&bytes);
+        Blob { hash, bytes }
+    }
+
+    fn json<T: serde::ser::Serialize>(v: &T) -> Result<Blob, Error> {
+        Ok(Blob::new(serde_json::to_vec(v)?))
+    }
 }
 
 struct Image {
