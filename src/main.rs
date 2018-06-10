@@ -294,7 +294,7 @@ fn tar(path: &str) -> Result<Vec<u8>, Error> {
     Ok(output.stdout)
 }
 
-fn slurp_store_path(state: &Mutex<State>, name: &str)
+fn get_image_for_path(state: &Mutex<State>, name: &str)
         -> Result<Arc<Image>, Error> {
     let mut state = state.lock().unwrap();
     let state: &mut State = &mut state;
@@ -379,7 +379,7 @@ fn handle_request(state: &Mutex<State>,
     let (name, label, op) = parse_path(path).context("parsing request path")?;
     println!("  -> name={:?}, label={:?} op={:?}", name, label, op);
 
-    let image = slurp_store_path(state, name)
+    let image = get_image_for_path(state, name)
         .context("loading store contents")?;
 
     if op == "manifests" {
