@@ -246,10 +246,13 @@ fn sha256(bytes: &[u8]) -> [u8; 32] {
 }
 
 fn make_config(layers: &HashMap<[u8; 32], Arc<Blob>>) -> Result<Blob, Error> {
+    let mut layer_refs: Vec<_> =
+        layers.keys().map(|k| docker::Digest(*k)).collect();
+    layer_refs.sort_unstable();
     let cfg = docker::ImageConfig{
         root_fs: docker::RootFs {
             type_: "layers",
-            diff_ids: layers.keys().map(|k| docker::Digest(*k)).collect(),
+            diff_ids: layer_refs,
         },
     };
 
@@ -260,6 +263,14 @@ fn make_config(layers: &HashMap<[u8; 32], Arc<Blob>>) -> Result<Blob, Error> {
 }
 
 fn make_manifest(cfg: &Blob, layers: &HashMap<[u8; 32], Arc<Blob>>) -> Result<Blob, Error> {
+    let mut layer_refs: Vec<_> = layers.iter().map(|(_, blob)|
+        docker::Ref{
+            media_type: docker::MediaTypeLayer,
+            size: blob.bytes.len(),
+            digest: docker::Digest(blob.hash),
+        }).collect();
+    layer_refs.sort_unstable_by(|a, b| a.digest.cmp(&b.digest));
+
     let m = docker::ImageManifest {
         schema_version: 2,
         media_type: docker::MediaTypeManifest,
@@ -268,12 +279,7 @@ fn make_manifest(cfg: &Blob, layers: &HashMap<[u8; 32], Arc<Blob>>) -> Result<Bl
             size: cfg.bytes.len(),
             digest: docker::Digest(cfg.hash),
         },
-        layers: layers.iter().map(|(_, blob)|
-            docker::Ref{
-                media_type: docker::MediaTypeLayer,
-                size: blob.bytes.len(),
-                digest: docker::Digest(blob.hash),
-            }).collect(),
+        layers: layer_refs,
     };
 
     let bytes = serde_json::to_vec(&m)?;
