@@ -1,4 +1,5 @@
 #![feature(
+    decl_macro,
     proc_macro,
     catch_expr,
     type_ascription,
@@ -180,47 +181,28 @@ mod docker {
         }
     }
 
-    #[derive(Debug, Copy, Clone)]
-    pub struct MediaTypeManifest;
-    impl serde::Serialize for MediaTypeManifest {
-        fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
-                where S: serde::Serializer {
-            s.serialize_str((*self).into())
+    macro label_type($name:ident, $label:expr) {
+        #[derive(Debug, Copy, Clone)]
+        pub struct $name;
+        impl serde::Serialize for $name {
+            fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
+                    where S: serde::Serializer {
+                s.serialize_str((*self).into())
+            }
         }
-    }
-    impl Into<&'static str> for MediaTypeManifest {
-        fn into(self) -> &'static str {
-            "application/vnd.docker.distribution.manifest.v2+json"
-        }
-    }
-
-    #[derive(Debug, Copy, Clone)]
-    pub struct MediaTypeImage;
-    impl serde::Serialize for MediaTypeImage {
-        fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
-                where S: serde::Serializer {
-            s.serialize_str((*self).into())
-        }
-    }
-    impl Into<&'static str> for MediaTypeImage {
-        fn into(self) -> &'static str {
-            "application/vnd.docker.container.image.v1+json"
+        impl Into<&'static str> for $name {
+            fn into(self) -> &'static str { $label }
         }
     }
 
-    #[derive(Debug, Copy, Clone)]
-    pub struct MediaTypeLayer;
-    impl serde::Serialize for MediaTypeLayer {
-        fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
-                where S: serde::Serializer {
-            s.serialize_str((*self).into())
-        }
-    }
-    impl Into<&'static str> for MediaTypeLayer {
-        fn into(self) -> &'static str {
-            "application/vnd.docker.image.rootfs.diff.tar.gzip"
-        }
-    }
+    label_type!(MediaTypeManifest,
+        "application/vnd.docker.distribution.manifest.v2+json");
+
+    label_type!(MediaTypeImage,
+        "application/vnd.docker.container.image.v1+json");
+
+    label_type!(MediaTypeLayer,
+        "application/vnd.docker.image.rootfs.diff.tar.gzip");
 }
 
 fn get_store_closure(path: &str) -> Result<Vec<String>, Error> {
