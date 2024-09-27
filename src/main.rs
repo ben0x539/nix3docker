@@ -1,8 +1,5 @@
 #![feature(
     decl_macro,
-    proc_macro,
-    catch_expr,
-    type_ascription,
 )]
 
 use std::{
@@ -341,7 +338,7 @@ fn resp(blob: &Blob, content_type: &'static str)
         -> Result<hyper::Response<hyper::Body>, Error> {
     return Ok(hyper::Response::builder()
         .header("Docker-Content-Digest",
-            docker::Digest(blob.hash).to_string().into(): bytes::Bytes)
+            bytes::Bytes::from(docker::Digest(blob.hash).to_string()))
         .header(hyper::header::CONTENT_LENGTH,
             &blob.bytes.len().to_string()[..])
         .header(hyper::header::CONTENT_TYPE, content_type)
@@ -366,13 +363,12 @@ fn handle_request(state: &Mutex<State>,
 
     if op == "manifests" {
         return resp(&image.manifest,
-            docker::MediaTypeManifest.into(): &'static str);
+            docker::MediaTypeManifest.into());
     } else if op == "blobs" {
         let digest = docker::Digest::from_str(label)
             .map_err(|_| failure::format_err!("weird digest: {}", label))?;
         if digest.0 == image.cfg.hash {
-            return resp(&image.cfg,
-                docker::MediaTypeImage.into(): &'static str);
+            return resp(&image.cfg, docker::MediaTypeImage.into());
         }
         let blob = image.layers.get(&digest.0).ok_or_else(||
             failure::format_err!("don't have layer for {}", digest))?;
